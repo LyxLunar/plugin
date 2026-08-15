@@ -1,11 +1,11 @@
-vendetta => ({
+({
     onLoad() {
-        vendetta.logger.info("CloudCord Cosmetics test loaded");
+        console.log("CloudCord Cosmetics loaded");
     },
 
     onUnload() {
-        vendetta.logger.info("CloudCord Cosmetics test unloaded");
+        console.log("CloudCord Cosmetics unloaded");
     },
 
-    settings: () => null
+    settings: null
 })
