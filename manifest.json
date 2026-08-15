@@ -1,6 +1,6 @@
 {
-  "name": "CloudCord Cosmetics Enable Test",
-  "description": "Minimal no-op plugin used only to verify that CloudCord can start an external Vendetta plugin.",
+  "name": "CloudCord Cosmetics",
+  "description": "Client-side cosmetic preview for CloudCord Android. Working baseline with persistent local selection.",
   "authors": [
     {
       "name": "LyxLunar"
@@ -10,5 +10,5 @@
   "vendetta": {
     "icon": "ic_profile_24px"
   },
-  "hash": "d4e4a275d30fb52fac31e4b265c3392418f8732874997cacc20dcbeadf2411fc"
+  "hash": "b373edb6699175751039cf07a9c113ab8706a4e3dece0d610ec9585d6b5193f7"
 }

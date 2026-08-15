@@ -1,16 +1,15 @@
-# CloudCord Cosmetics — Minimal Enable Test
+# CloudCord Cosmetics — Working v1
 
-This is intentionally a no-op plugin.
+This build is based on CloudCord's actual Vendetta plugin loader.
 
-It has:
-- no React Native imports
-- no Metro lookups
-- no patchers
-- no storage
-- no networking
-- no profile hooks
+Important:
+- The plugin source is an object expression, not a `vendetta => ...` factory.
+- It uses the `vendetta` variable supplied by CloudCord's evaluator.
+- Settings are exposed through the lowercase `settings` property expected by
+  CloudCord's Vendetta plugin manager.
+- The selected preview is persisted in the plugin's storage.
+- No network sync or account-entitlement spoofing is included.
 
-It only exports `onLoad`, `onUnload`, and a null settings component.
-
-If this plugin cannot be enabled in CloudCord, the problem is outside the
-cosmetics code and should be diagnosed from CloudCord's plugin error/log.
+The cosmetic choices in this baseline are presentation-only placeholders.
+Profile rendering will be added only after this settings/storage baseline is
+confirmed working on the user's CloudCord build.
