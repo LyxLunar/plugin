@@ -1,14 +1,14 @@
 {
-  "name": "CloudCord Cosmetics Final Test",
-  "description": "Minimal CloudCord Android plugin used to verify the plugin settings/wrench system before enabling cosmetic rendering.",
+  "name": "CloudCord Cosmetics Enable Test",
+  "description": "Minimal no-op plugin used only to verify that CloudCord can start an external Vendetta plugin.",
   "authors": [
     {
-      "name": "CloudCord Cosmetics"
+      "name": "LyxLunar"
     }
   ],
   "main": "index.js",
   "vendetta": {
     "icon": "ic_profile_24px"
   },
-  "hash": "3c260326d455f74b52d76e1f0e44057c5b5e4fabe01aad7363a4c61d59f3d71b"
+  "hash": "d4e4a275d30fb52fac31e4b265c3392418f8732874997cacc20dcbeadf2411fc"
 }
