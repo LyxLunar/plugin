@@ -1,6 +1,6 @@
 {
   "name": "CloudCord Cosmetics",
-  "description": "Client-side cosmetic preview for CloudCord Android with decorations, effects, nameplates, frames and display-name styles.",
+  "description": "CloudCord Android cosmetic preview plugin. Uses CloudCord's actual SettingsComponent contract for the wrench configuration screen.",
   "authors": [
     {
       "name": "CloudCord Cosmetics",
@@ -8,7 +8,7 @@
     }
   ],
   "main": "index.js",
-  "hash": "b6a97fbb1693764afe01251c8eeb2d3b79d7f71562b55462645c9bdd97394621",
+  "hash": "15cd071623007110a7eb47a580d889956e05978ed9f05be6157e3590a6715969",
   "vendetta": {
     "icon": "ic_badge_staff"
   }

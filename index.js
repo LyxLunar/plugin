@@ -498,7 +498,7 @@ vendetta => {
      * desktop Vencord's `Settings` convention and fixes the non-working wrench.
      */
     return {
-        settings: Settings,
+        SettingsComponent: Settings,
 
         onLoad() {
             findProfiles();
