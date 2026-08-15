@@ -1,15 +1,14 @@
 {
-  "name": "CloudCord Cosmetics",
-  "description": "CloudCord Android cosmetic preview plugin. Uses CloudCord's actual SettingsComponent contract for the wrench configuration screen.",
+  "name": "CloudCord Cosmetics Final Test",
+  "description": "Minimal CloudCord Android plugin used to verify the plugin settings/wrench system before enabling cosmetic rendering.",
   "authors": [
     {
-      "name": "CloudCord Cosmetics",
-      "id": "0"
+      "name": "CloudCord Cosmetics"
     }
   ],
   "main": "index.js",
-  "hash": "15cd071623007110a7eb47a580d889956e05978ed9f05be6157e3590a6715969",
   "vendetta": {
-    "icon": "ic_badge_staff"
-  }
+    "icon": "ic_profile_24px"
+  },
+  "hash": "3c260326d455f74b52d76e1f0e44057c5b5e4fabe01aad7363a4c61d59f3d71b"
 }
