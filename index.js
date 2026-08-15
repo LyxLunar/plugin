@@ -1,64 +1,60 @@
 /*
- * CloudCord Cosmetics — Android/Vendetta-compatible plugin
+ * CloudCord Cosmetics v4
  *
- * Presentation-only cosmetics:
- * - Avatar decorations
- * - Profile effects
- * - Nameplates
- * - Profile frames
- * - Display-name styles
+ * Built for the Vendetta-style CloudCord mobile plugin runtime.
  *
- * It never edits Discord inventory/entitlements or sends Discord auth data.
- *
- * This plugin is deliberately defensive because Discord's React Native
- * component names can change between builds.
+ * IMPORTANT:
+ * This plugin is presentation-only. It does not modify Discord inventory,
+ * Nitro status, purchases, account entitlements, or server-side profile data.
  */
 
-module.exports = (vendetta) => {
-    const { React, ReactNative } = vendetta.metro.common;
-    const { findByName } = vendetta.metro.filters;
-    const { after } = vendetta.patcher;
-    const { General } = vendetta.ui.components;
-    const { storage } = vendetta.plugin;
+vendetta => {
+    const React = vendetta.metro.common.React ?? globalThis.React;
+    const RN = vendetta.metro.common.ReactNative;
 
-    const RN = ReactNative;
-    const { View, Text, Pressable, ScrollView } = RN;
+    if (!React || !RN) {
+        throw new Error("CloudCord Cosmetics: React/ReactNative unavailable");
+    }
+
+    const { View, Text, ScrollView, Pressable, TextInput } = RN;
+    const storage = vendetta.plugin.storage;
+    const patches = [];
 
     const DEFAULTS = {
         enabled: true,
+        renderOthers: true,
         decoration: "stars",
         effect: "glow",
         nameplate: "neon",
         frame: "aurora",
         displayNameStyle: "bold",
-        renderOthers: true,
         syncEnabled: false,
         syncUrl: "",
     };
 
-    const COSMETICS = {
+    const OPTIONS = {
         decoration: [
-            ["none", "None", "No decoration"],
+            ["none", "None", "No avatar decoration"],
             ["stars", "Stars", "Star accent"],
             ["sparkles", "Sparkles", "Sparkle accent"],
             ["crown", "Crown", "Crown accent"],
             ["hearts", "Hearts", "Heart accent"],
         ],
         effect: [
-            ["none", "None", "No effect"],
+            ["none", "None", "No profile effect"],
             ["glow", "Glow", "Soft glow"],
-            ["pulse", "Pulse", "Pulse animation"],
+            ["pulse", "Pulse", "Pulse accent"],
             ["shimmer", "Shimmer", "Shimmer accent"],
             ["confetti", "Confetti", "Confetti accent"],
         ],
         nameplate: [
             ["none", "None", "No nameplate"],
-            ["neon", "Neon", "Neon-style nameplate"],
-            ["aurora", "Aurora", "Aurora-style nameplate"],
-            ["pixel", "Pixel", "Pixel-style nameplate"],
+            ["neon", "Neon", "Neon nameplate"],
+            ["aurora", "Aurora", "Aurora nameplate"],
+            ["pixel", "Pixel", "Pixel nameplate"],
         ],
         frame: [
-            ["none", "None", "No frame"],
+            ["none", "None", "No profile frame"],
             ["classic", "Classic", "Classic frame"],
             ["rounded", "Rounded", "Rounded frame"],
             ["ornate", "Ornate", "Ornate frame"],
@@ -72,71 +68,61 @@ module.exports = (vendetta) => {
         ],
     };
 
-    const cleanId = (value, fallback) => {
-        if (typeof value !== "string") return fallback;
-        const result = value.trim().replace(/[^a-zA-Z0-9_.:-]/g, "").slice(0, 80);
-        return result || fallback;
+    const isValid = (category, id) =>
+        OPTIONS[category].some(x => x[0] === id);
+
+    const loadState = () => {
+        const s = storage || {};
+        const next = { ...DEFAULTS, ...s };
+
+        for (const category of ["decoration", "effect", "nameplate", "frame", "displayNameStyle"]) {
+            if (!isValid(category, next[category]))
+                next[category] = DEFAULTS[category];
+        }
+
+        if (typeof next.syncUrl !== "string")
+            next.syncUrl = "";
+
+        next.syncUrl = next.syncUrl.slice(0, 500);
+        next.enabled = next.enabled !== false;
+        next.renderOthers = next.renderOthers !== false;
+        next.syncEnabled = next.syncEnabled === true;
+
+        return next;
     };
 
-    const validValue = (category, value) =>
-        COSMETICS[category].some(([id]) => id === value) ? value : DEFAULTS[category];
-
-    const load = () => {
-        const saved = storage?.data && typeof storage.data === "object" ? storage.data : {};
-        return {
-            ...DEFAULTS,
-            ...saved,
-            decoration: validValue("decoration", cleanId(saved.decoration, DEFAULTS.decoration)),
-            effect: validValue("effect", cleanId(saved.effect, DEFAULTS.effect)),
-            nameplate: validValue("nameplate", cleanId(saved.nameplate, DEFAULTS.nameplate)),
-            frame: validValue("frame", cleanId(saved.frame, DEFAULTS.frame)),
-            displayNameStyle: validValue("displayNameStyle", cleanId(saved.displayNameStyle, DEFAULTS.displayNameStyle)),
-            enabled: saved.enabled !== false,
-            renderOthers: saved.renderOthers !== false,
-            syncEnabled: saved.syncEnabled === true,
-            syncUrl: typeof saved.syncUrl === "string" ? saved.syncUrl.slice(0, 500) : "",
-        };
-    };
-
-    let state = load();
-    const unpatches = [];
+    let state = loadState();
     let socket = null;
-    let socketTimer = null;
+    let reconnectTimer = null;
 
     const save = () => {
         try {
-            if (storage?.set)
-                storage.set(state);
-            else if (storage)
-                storage.data = { ...state };
+            Object.assign(storage, state);
         } catch (e) {
-            console.error("[CloudCordCosmetics] Failed to save settings", e);
+            vendetta.logger?.error?.("Failed to save cosmetics settings", e);
         }
     };
 
-    const setState = (patch) => {
-        state = { ...state, ...patch };
+    const update = (change) => {
+        state = { ...state, ...change };
         save();
-        if (state.syncEnabled) publish();
+        if (state.syncEnabled)
+            publish();
     };
 
-    const cosmeticText = (category, id) => {
-        const row = COSMETICS[category]?.find(x => x[0] === id);
-        return row ? row[1] : id;
-    };
+    const labelFor = (category, id) =>
+        OPTIONS[category].find(x => x[0] === id)?.[1] ?? id;
 
-    /*
-     * The visual layer uses React Native primitives instead of Discord's
-     * proprietary Shop artwork. This makes the plugin self-contained and
-     * avoids depending on fragile CDN asset URLs.
-     */
-    const CosmeticBadge = ({ label, type }) => {
-        const symbols = {
-            decoration: { stars: "✦", sparkles: "✧", crown: "♛", hearts: "♥" },
-            effect: { glow: "◌", pulse: "◉", shimmer: "✧", confetti: "✺" },
-            nameplate: { neon: "N", aurora: "A", pixel: "P" },
-            frame: { classic: "◇", rounded: "○", ornate: "✥", aurora: "◈" },
-        };
+    const symbolFor = (category, id) => ({
+        decoration: { stars: "✦", sparkles: "✧", crown: "♛", hearts: "♥" },
+        effect: { glow: "◌", pulse: "◉", shimmer: "✧", confetti: "✺" },
+        nameplate: { neon: "N", aurora: "A", pixel: "P" },
+        frame: { classic: "◇", rounded: "○", ornate: "✥", aurora: "◈" },
+    }[category]?.[id] ?? "");
+
+    const Badge = ({ category, id }) => {
+        if (!id || id === "none" || (category === "displayNameStyle" && id === "default"))
+            return null;
 
         return React.createElement(View, {
             style: {
@@ -147,15 +133,20 @@ module.exports = (vendetta) => {
                 backgroundColor: "rgba(88,101,242,0.18)",
                 borderWidth: 1,
                 borderColor: "rgba(88,101,242,0.55)",
-            }
-        }, React.createElement(Text, {
-            style: { color: "#d9ddff", fontSize: 10, fontWeight: "700" }
-        }, `${symbols[type]?.[state[type]] ?? ""} ${label}`));
+            },
+        },
+            React.createElement(Text, {
+                style: { color: "#d9ddff", fontSize: 10, fontWeight: "700" },
+            }, `${symbolFor(category, id)} ${labelFor(category, id)}`)
+        );
     };
 
-    const CosmeticOverlay = ({ user }) => {
-        if (!state.enabled || !user) return null;
-        if (!state.renderOthers && !user.isMe) return null;
+    const CosmeticOverlay = ({ user, local }) => {
+        if (!state.enabled || !user)
+            return null;
+
+        if (!local && !state.renderOthers)
+            return null;
 
         const username = user.global_name || user.username || "";
         const nameStyle = {
@@ -167,152 +158,120 @@ module.exports = (vendetta) => {
         return React.createElement(View, {
             pointerEvents: "none",
             style: {
-                position: "absolute",
-                left: 0,
-                right: 0,
-                bottom: 0,
-                padding: 8,
                 flexDirection: "row",
                 flexWrap: "wrap",
                 alignItems: "center",
-                gap: 4,
-                backgroundColor: state.effect === "glow"
-                    ? "rgba(88,101,242,0.10)"
-                    : "transparent",
+                paddingHorizontal: 6,
+                paddingVertical: 4,
+                marginTop: 3,
                 borderWidth: state.frame === "none" ? 0 : 1,
                 borderColor: state.frame === "aurora"
                     ? "rgba(130,220,255,0.75)"
                     : "rgba(88,101,242,0.55)",
-                borderRadius: state.frame === "rounded" || state.frame === "aurora" ? 16 : 8,
-            }
+                borderRadius: state.frame === "rounded" || state.frame === "aurora" ? 14 : 7,
+                backgroundColor: state.effect === "glow"
+                    ? "rgba(88,101,242,0.10)"
+                    : "transparent",
+            },
         },
-            React.createElement(Text, {
-                style: {
-                    color: "#ffffff",
-                    ...nameStyle,
-                }
-            }, username),
-            state.decoration !== "none"
-                ? React.createElement(CosmeticBadge, {
-                    label: cosmeticText("decoration", state.decoration),
-                    type: "decoration"
-                })
-                : null,
-            state.effect !== "none"
-                ? React.createElement(CosmeticBadge, {
-                    label: cosmeticText("effect", state.effect),
-                    type: "effect"
-                })
-                : null,
-            state.nameplate !== "none"
-                ? React.createElement(CosmeticBadge, {
-                    label: cosmeticText("nameplate", state.nameplate),
-                    type: "nameplate"
-                })
-                : null,
-            state.frame !== "none"
-                ? React.createElement(CosmeticBadge, {
-                    label: cosmeticText("frame", state.frame),
-                    type: "frame"
-                })
-                : null
+            React.createElement(Text, { style: { color: "#fff", ...nameStyle } }, username),
+            React.createElement(Badge, { category: "decoration", id: state.decoration }),
+            React.createElement(Badge, { category: "effect", id: state.effect }),
+            React.createElement(Badge, { category: "nameplate", id: state.nameplate }),
+            React.createElement(Badge, { category: "frame", id: state.frame })
         );
     };
 
     /*
-     * Defensive profile patch:
-     * Try several common mobile profile component names. If none exist, the
-     * plugin still loads and its Settings page remains usable.
+     * Try to locate a profile component without assuming one exact Discord
+     * build. If no candidate is found, the plugin remains usable and settings
+     * still work.
      */
-    const PROFILE_NAMES = [
+    const profileNames = [
         "UserProfile",
         "UserProfileModal",
         "UserProfileScreen",
-        "Profile",
         "UserProfileOverview",
+        "Profile",
     ];
 
-    const getUserFromTree = (tree) => {
-        let found = null;
-        const seen = new Set();
+    const getUser = (node, seen = new Set(), depth = 0) => {
+        if (!node || depth > 8 || typeof node !== "object" || seen.has(node))
+            return null;
 
-        const walk = (node, depth = 0) => {
-            if (!node || depth > 10 || found) return;
-            if (typeof node !== "object") return;
-            if (seen.has(node)) return;
-            seen.add(node);
+        seen.add(node);
 
-            const props = node.props;
-            const candidate = props?.user || props?.userData || props?.profile?.user;
-            if (candidate && typeof candidate === "object" && typeof candidate.id === "string") {
-                found = candidate;
+        const p = node.props;
+        const candidate = p?.user || p?.userData || p?.profile?.user;
+
+        if (candidate && typeof candidate.id === "string")
+            return candidate;
+
+        if (Array.isArray(node)) {
+            for (const child of node) {
+                const found = getUser(child, seen, depth + 1);
+                if (found) return found;
+            }
+        }
+
+        if (p?.children) {
+            const found = getUser(p.children, seen, depth + 1);
+            if (found) return found;
+        }
+
+        return null;
+    };
+
+    const wrapResult = (result, user) => {
+        if (!result || !user || !React.isValidElement(result))
+            return result;
+
+        const overlay = React.createElement(CosmeticOverlay, {
+            user,
+            local: true,
+        });
+
+        return React.createElement(View, {
+            style: { position: "relative", flex: 1 },
+        }, result, overlay);
+    };
+
+    const patchProfileComponent = (component) => {
+        if (!component)
+            return;
+
+        try {
+            if (component.prototype?.render) {
+                const unpatch = vendetta.patcher.after(
+                    "render",
+                    component.prototype,
+                    (args, result) => wrapResult(result, getUser(result) || args?.[0]?.user)
+                );
+                patches.push(unpatch);
                 return;
             }
 
-            for (const key of Object.keys(node)) {
-                if (key === "children" || key === "props") {
-                    walk(node[key], depth + 1);
-                }
-            }
-
-            if (Array.isArray(node)) {
-                for (const child of node)
-                    walk(child, depth + 1);
-            }
-        };
-
-        walk(tree);
-        return found;
-    };
-
-    const patchProfile = (target) => {
-        if (!target || typeof target.render !== "function") return;
-        try {
-            unpatches.push(after("render", target, (_args, ret) => {
-                try {
-                    const user = getUserFromTree(ret);
-                    if (!user || !ret) return ret;
-
-                    const overlay = React.createElement(CosmeticOverlay, {
-                        user: {
-                            ...user,
-                            isMe: true,
-                        }
-                    });
-
-                    if (ret?.props?.children) {
-                        const children = Array.isArray(ret.props.children)
-                            ? [...ret.props.children, overlay]
-                            : [ret.props.children, overlay];
-
-                        return React.cloneElement(ret, {
-                            ...ret.props,
-                            children,
-                        });
-                    }
-
-                    return React.createElement(View, {
-                        style: { position: "relative", flex: 1 }
-                    }, ret, overlay);
-                } catch (e) {
-                    console.error("[CloudCordCosmetics] Profile render patch failed", e);
-                    return ret;
-                }
-            }));
+            /*
+             * Functional components are often exposed as the function itself.
+             * Patching the function's call is not safe with every JS engine, so
+             * we intentionally leave those untouched instead of risking crashes.
+             */
         } catch (e) {
-            console.warn("[CloudCordCosmetics] Could not patch profile renderer", e);
+            vendetta.logger?.warn?.("Profile patch skipped", e);
         }
     };
 
-    const patchProfiles = () => {
-        for (const name of PROFILE_NAMES) {
+    const findProfiles = () => {
+        for (const name of profileNames) {
             try {
-                patchProfile(findByName(name, false));
+                const components = vendetta.metro.findByNameAll(name, false) || [];
+                for (const component of components.slice(0, 3))
+                    patchProfileComponent(component);
             } catch {}
         }
     };
 
-    const send = (message) => {
+    const send = message => {
         try {
             if (socket?.readyState === 1)
                 socket.send(JSON.stringify(message));
@@ -320,7 +279,9 @@ module.exports = (vendetta) => {
     };
 
     const publish = () => {
-        if (!state.syncEnabled || !state.syncUrl) return;
+        if (!state.syncEnabled || !state.syncUrl)
+            return;
+
         send({
             type: "cloudcord-cosmetics",
             version: 1,
@@ -334,149 +295,175 @@ module.exports = (vendetta) => {
         });
     };
 
-    const connect = () => {
-        if (!state.syncEnabled || !/^wss?:\/\//i.test(state.syncUrl)) return;
-        try {
-            socket?.close();
-            socket = new WebSocket(state.syncUrl);
-
-            socket.onopen = () => {
-                publish();
-            };
-
-            socket.onmessage = (event) => {
-                try {
-                    const msg = JSON.parse(String(event.data));
-                    if (msg?.type !== "cloudcord-cosmetics" || msg.version !== 1) return;
-                    const incoming = msg.state || {};
-                    state = {
-                        ...state,
-                        decoration: validValue("decoration", incoming.decoration),
-                        effect: validValue("effect", incoming.effect),
-                        nameplate: validValue("nameplate", incoming.nameplate),
-                        frame: validValue("frame", incoming.frame),
-                        displayNameStyle: validValue("displayNameStyle", incoming.displayNameStyle),
-                    };
-                    save();
-                } catch {}
-            };
-
-            socket.onerror = () => {};
-            socket.onclose = () => {
-                if (state.syncEnabled) {
-                    clearTimeout(socketTimer);
-                    socketTimer = setTimeout(connect, 5000);
-                }
-            };
-        } catch {}
-    };
-
     const disconnect = () => {
-        clearTimeout(socketTimer);
-        socketTimer = null;
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
         try { socket?.close(); } catch {}
         socket = null;
     };
 
-    const Choice = ({ category, item }) => {
-        const [id, label, description] = item;
+    const connect = () => {
+        disconnect();
+
+        if (!state.syncEnabled || !/^wss?:\/\//i.test(state.syncUrl))
+            return;
+
+        try {
+            socket = new WebSocket(state.syncUrl);
+
+            socket.onopen = publish;
+
+            socket.onmessage = event => {
+                try {
+                    const msg = JSON.parse(String(event.data));
+                    if (msg?.type !== "cloudcord-cosmetics" || msg?.version !== 1)
+                        return;
+
+                    const incoming = msg.state || {};
+                    const patch = {};
+
+                    for (const category of ["decoration", "effect", "nameplate", "frame", "displayNameStyle"]) {
+                        if (isValid(category, incoming[category]))
+                            patch[category] = incoming[category];
+                    }
+
+                    if (Object.keys(patch).length)
+                        update(patch);
+                } catch {}
+            };
+
+            socket.onclose = () => {
+                if (state.syncEnabled)
+                    reconnectTimer = setTimeout(connect, 5000);
+            };
+        } catch {
+            reconnectTimer = setTimeout(connect, 5000);
+        }
+    };
+
+    const Option = ({ category, item }) => {
+        const [id, title, description] = item;
         const selected = state[category] === id;
 
         return React.createElement(Pressable, {
-            onPress: () => setState({ [category]: id }),
+            onPress: () => update({ [category]: id }),
             style: {
                 padding: 12,
-                marginBottom: 8,
-                borderRadius: 12,
-                backgroundColor: selected ? "rgba(88,101,242,0.28)" : "rgba(255,255,255,0.06)",
+                marginBottom: 7,
+                borderRadius: 11,
+                backgroundColor: selected
+                    ? "rgba(88,101,242,0.30)"
+                    : "rgba(255,255,255,0.06)",
                 borderWidth: 1,
-                borderColor: selected ? "rgba(120,130,255,0.85)" : "rgba(255,255,255,0.08)",
-            }
+                borderColor: selected
+                    ? "rgba(120,130,255,0.90)"
+                    : "rgba(255,255,255,0.08)",
+            },
         },
             React.createElement(Text, {
-                style: { color: "#fff", fontSize: 15, fontWeight: selected ? "800" : "600" }
-            }, selected ? `✓ ${label}` : label),
+                style: { color: "#fff", fontSize: 15, fontWeight: selected ? "800" : "600" },
+            }, selected ? `✓ ${title}` : title),
             React.createElement(Text, {
-                style: { color: "#a9adb8", fontSize: 12, marginTop: 3 }
+                style: { color: "#a9adb8", fontSize: 12, marginTop: 3 },
             }, description)
         );
     };
 
-    const Section = ({ category, title }) => React.createElement(View, {
-        style: { marginBottom: 18 }
-    },
-        React.createElement(Text, {
-            style: { color: "#fff", fontSize: 18, fontWeight: "800", marginBottom: 8 }
-        }, title),
-        ...COSMETICS[category].map(item =>
-            React.createElement(Choice, {
-                key: item[0],
-                category,
-                item,
-            })
-        )
-    );
+    const Category = ({ category, title }) =>
+        React.createElement(View, { style: { marginBottom: 18 } },
+            React.createElement(Text, {
+                style: { color: "#fff", fontSize: 18, fontWeight: "800", marginBottom: 8 },
+            }, title),
+            ...OPTIONS[category].map(item =>
+                React.createElement(Option, {
+                    key: `${category}:${item[0]}`,
+                    category,
+                    item,
+                })
+            )
+        );
 
     const Settings = () => {
-        const [, force] = React.useState(0);
+        const [, rerender] = React.useReducer(x => x + 1, 0);
 
-        const update = (patch) => {
-            setState(patch);
-            force(x => x + 1);
+        const change = patch => {
+            update(patch);
+            rerender();
         };
 
         return React.createElement(ScrollView, {
             style: { flex: 1, backgroundColor: "#111214" },
-            contentContainerStyle: { padding: 16, paddingBottom: 80 }
+            contentContainerStyle: { padding: 16, paddingBottom: 60 },
         },
             React.createElement(Text, {
-                style: { color: "#fff", fontSize: 25, fontWeight: "900", marginBottom: 4 }
+                style: { color: "#fff", fontSize: 24, fontWeight: "900", marginBottom: 5 },
             }, "CloudCord Cosmetics"),
             React.createElement(Text, {
-                style: { color: "#a9adb8", fontSize: 13, marginBottom: 20 }
-            }, "Local presentation-only profile cosmetics."),
-            React.createElement(Section, { category: "decoration", title: "Avatar Decorations" }),
-            React.createElement(Section, { category: "effect", title: "Profile Effects" }),
-            React.createElement(Section, { category: "nameplate", title: "Nameplates" }),
-            React.createElement(Section, { category: "frame", title: "Profile Frames" }),
-            React.createElement(Section, { category: "displayNameStyle", title: "Display Name Styles" }),
+                style: { color: "#a9adb8", fontSize: 13, marginBottom: 20 },
+            }, "Local cosmetic preview. Discord account inventory is unchanged."),
+
+            React.createElement(Category, { category: "decoration", title: "Avatar Decorations" }),
+            React.createElement(Category, { category: "effect", title: "Profile Effects" }),
+            React.createElement(Category, { category: "nameplate", title: "Nameplates" }),
+            React.createElement(Category, { category: "frame", title: "Profile Frames" }),
+            React.createElement(Category, { category: "displayNameStyle", title: "Display Name Styles" }),
 
             React.createElement(Text, {
-                style: { color: "#fff", fontSize: 18, fontWeight: "800", marginBottom: 8 }
-            }, "Behavior"),
+                style: { color: "#fff", fontSize: 18, fontWeight: "800", marginBottom: 8 },
+            }, "Rendering"),
 
             React.createElement(Pressable, {
-                onPress: () => update({ enabled: !state.enabled }),
-                style: { padding: 14, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.06)", marginBottom: 8 }
-            }, React.createElement(Text, { style: { color: "#fff", fontWeight: "700" } },
-                `${state.enabled ? "✓" : "○"} Enable cosmetic rendering`
-            )),
+                onPress: () => change({ enabled: !state.enabled }),
+                style: {
+                    padding: 14,
+                    borderRadius: 11,
+                    backgroundColor: "rgba(255,255,255,0.06)",
+                    marginBottom: 8,
+                },
+            }, React.createElement(Text, {
+                style: { color: "#fff", fontWeight: "700" },
+            }, `${state.enabled ? "✓" : "○"} Enable cosmetics`)),
 
             React.createElement(Pressable, {
-                onPress: () => update({ renderOthers: !state.renderOthers }),
-                style: { padding: 14, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.06)", marginBottom: 8 }
-            }, React.createElement(Text, { style: { color: "#fff", fontWeight: "700" } },
-                `${state.renderOthers ? "✓" : "○"} Render cosmetics for compatible profiles`
-            )),
+                onPress: () => change({ renderOthers: !state.renderOthers }),
+                style: {
+                    padding: 14,
+                    borderRadius: 11,
+                    backgroundColor: "rgba(255,255,255,0.06)",
+                    marginBottom: 8,
+                },
+            }, React.createElement(Text, {
+                style: { color: "#fff", fontWeight: "700" },
+            }, `${state.renderOthers ? "✓" : "○"} Render compatible remote cosmetics`)),
 
             React.createElement(Text, {
-                style: { color: "#a9adb8", fontSize: 12, marginTop: 4 }
-            }, "The built-in renderer uses local symbols/styles. Discord Shop artwork is not copied into the plugin."),
+                style: { color: "#a9adb8", fontSize: 12, marginTop: 4 },
+            }, "The included cosmetics are local CloudCord styles, not Discord Shop assets."),
 
             React.createElement(Text, {
-                style: { color: "#fff", fontSize: 18, fontWeight: "800", marginTop: 20, marginBottom: 8 }
+                style: { color: "#fff", fontSize: 18, fontWeight: "800", marginTop: 20, marginBottom: 8 },
             }, "CloudCord Sync"),
 
             React.createElement(Pressable, {
-                onPress: () => update({ syncEnabled: !state.syncEnabled }),
-                style: { padding: 14, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.06)", marginBottom: 8 }
-            }, React.createElement(Text, { style: { color: "#fff", fontWeight: "700" } },
-                `${state.syncEnabled ? "✓" : "○"} Enable compatible-client sync`
-            )),
+                onPress: () => {
+                    const enabled = !state.syncEnabled;
+                    change({ syncEnabled: enabled });
+                    if (enabled) connect();
+                    else disconnect();
+                },
+                style: {
+                    padding: 14,
+                    borderRadius: 11,
+                    backgroundColor: "rgba(255,255,255,0.06)",
+                    marginBottom: 8,
+                },
+            }, React.createElement(Text, {
+                style: { color: "#fff", fontWeight: "700" },
+            }, `${state.syncEnabled ? "✓" : "○"} Enable compatible-client sync`)),
 
-            React.createElement(RN.TextInput, {
+            React.createElement(TextInput, {
                 value: state.syncUrl,
-                onChangeText: value => update({ syncUrl: value.slice(0, 500) }),
+                onChangeText: value => change({ syncUrl: value.slice(0, 500) }),
                 placeholder: "wss://your-relay.example",
                 placeholderTextColor: "#72767d",
                 autoCapitalize: "none",
@@ -488,38 +475,42 @@ module.exports = (vendetta) => {
                     paddingHorizontal: 12,
                     paddingVertical: 11,
                     marginBottom: 10,
-                }
+                },
             }),
 
             React.createElement(Pressable, {
-                onPress: () => {
-                    disconnect();
-                    if (state.syncEnabled) connect();
-                },
+                onPress: connect,
                 style: {
                     padding: 14,
-                    borderRadius: 12,
+                    borderRadius: 11,
                     backgroundColor: "#5865f2",
                     alignItems: "center",
-                }
+                },
             }, React.createElement(Text, {
-                style: { color: "#fff", fontWeight: "800" }
+                style: { color: "#fff", fontWeight: "800" },
             }, "Reconnect Sync"))
         );
     };
 
+    /*
+     * Vendetta's mobile plugin manager expects the lowercase `settings`
+     * property to contain the actual React element. This is different from
+     * desktop Vencord's `Settings` convention and fixes the non-working wrench.
+     */
     return {
+        settings: React.createElement(Settings),
+
         onLoad() {
-            patchProfiles();
-            if (state.syncEnabled) connect();
+            findProfiles();
+            if (state.syncEnabled)
+                connect();
         },
 
         onUnload() {
-            for (const unpatch of unpatches.splice(0))
+            for (const unpatch of patches.splice(0)) {
                 try { unpatch?.(); } catch {}
+            }
             disconnect();
         },
-
-        Settings,
     };
 };

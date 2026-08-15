@@ -1,6 +1,6 @@
 {
   "name": "CloudCord Cosmetics",
-  "description": "Client-side profile cosmetic preview for CloudCord Android. Includes decorations, effects, nameplates, frames and display-name styles.",
+  "description": "Client-side cosmetic preview for CloudCord Android with decorations, effects, nameplates, frames and display-name styles.",
   "authors": [
     {
       "name": "CloudCord Cosmetics",
@@ -8,7 +8,7 @@
     }
   ],
   "main": "index.js",
-  "hash": "9cd7d4a587152f229f7af7baf2faf4134973d0cadb6f363c8a965ffcf41da5a8",
+  "hash": "9dcbea079f395febcd76e1e37b43849bd6a83c8c25ad07a095817e40507a7b5a",
   "vendetta": {
     "icon": "ic_badge_staff"
   }
