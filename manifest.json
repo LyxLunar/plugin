@@ -1,6 +1,6 @@
 {
   "name": "CloudCord Cosmetics",
-  "description": "Android client-side cosmetic preview",
+  "description": "Local avatar frames and effects",
   "authors": [
     {
       "name": "LyxLunar"
@@ -10,5 +10,5 @@
   "vendetta": {
     "icon": "ic_profile_24px"
   },
-  "hash": "3c2c4104189ff42785cc7cbf3bb64b0b16bd2c4b6037f979a6dfe2f5a35a8298"
+  "hash": "2457c5a4e38190efa54a65bf8bd943315af324646afde64781fdade3a5871710"
 }
