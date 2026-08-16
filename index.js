@@ -1,7 +1,15 @@
-const plugin = {
-    SettingsComponent() {
-        const React = bunny.api.react.React;
-        const ReactNative = bunny.api.react.ReactNative;
+vendetta => ({
+    onLoad() {
+        vendetta.logger.info("CloudCord Cosmetics settings test loaded");
+    },
+
+    onUnload() {
+        vendetta.logger.info("CloudCord Cosmetics settings test unloaded");
+    },
+
+    settings: function Settings() {
+        const React = vendetta.common.React;
+        const ReactNative = vendetta.common.ReactNative;
 
         return React.createElement(
             ReactNative.View,
@@ -11,6 +19,7 @@ const plugin = {
                     padding: 20
                 }
             },
+
             React.createElement(
                 ReactNative.Text,
                 {
@@ -21,6 +30,7 @@ const plugin = {
                 },
                 "CloudCord Cosmetics"
             ),
+
             React.createElement(
                 ReactNative.Text,
                 {
@@ -32,13 +42,5 @@ const plugin = {
                 "Settings are working!"
             )
         );
-    },
-
-    start() {
-        bunny.plugin.logger.info("CloudCord Cosmetics loaded");
-    },
-
-    stop() {
-        bunny.plugin.logger.info("CloudCord Cosmetics unloaded");
     }
-};
+})
