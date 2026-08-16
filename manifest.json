@@ -7,12 +7,5 @@
     }
   ],
   "main": "index.js",
-  "vendetta": {
-    "icon": "ic_profile_24px"
-  },
-  "hash": "42b44bd34eedf24cd88fef93ec82e585fe1b3e6b3dba18ffc16e29422e967d6a",
-  "cloudcord": {
-    "id": "cloudcord-cosmetics",
-    "kind": "source"
-  }
+  "hash": "eb2ce2fc6af91a9d3b1438ce3ca3e48621c180e53388583e600dd2332856baba"
 }
