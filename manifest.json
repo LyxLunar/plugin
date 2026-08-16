@@ -1,6 +1,6 @@
 {
   "name": "CloudCord Cosmetics",
-  "description": "CloudCord Cosmetics test plugin.",
+  "description": "Local cosmetic preview system",
   "authors": [
     {
       "name": "LyxLunar"
@@ -10,5 +10,5 @@
   "vendetta": {
     "icon": "ic_profile_24px"
   },
-  "hash": "c1487dbb6a61928d6ac875fcf59f16b5fbea6d01ac8bc4897e9c8d03504d59a3"
+  "hash": "9ef2f1dfbe0b2d9440efea1a4db06c6a4f6f97d64b41fd2c8c4e3fce9d6b1d21"
 }
