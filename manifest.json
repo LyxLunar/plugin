@@ -1,14 +1,13 @@
-{
-  "name": "CloudCord Cosmetics",
-  "description": "Minimal settings test for CloudCord Cosmetics.",
-  "authors": [
-    {
-      "name": "LyxLunar"
+const plugin = {
+    SettingsComponent() {
+        return null;
+    },
+
+    start() {
+        bunny.plugin.logger.info("CloudCord Cosmetics settings test loaded");
+    },
+
+    stop() {
+        bunny.plugin.logger.info("CloudCord Cosmetics settings test unloaded");
     }
-  ],
-  "main": "index.js",
-  "vendetta": {
-    "icon": "ic_profile_24px"
-  },
-  "hash": "b4d361c30a4faf42a1d46427498025993eca50dcbd85d2ca4149ef44d91c032f"
-}
+};
