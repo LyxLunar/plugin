@@ -1,4 +1,4 @@
-vendetta => ({
+({
     onLoad() {
         console.log("[CloudCord Cosmetics] loaded");
     },
