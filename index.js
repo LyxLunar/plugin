@@ -1,11 +1,11 @@
 ({
-  onLoad() {
-    console.log("[CloudCord Cosmetics] loaded");
-  },
+    onLoad() {
+        console.log("[CloudCord Cosmetics] loaded");
+    },
 
-  onUnload() {
-    console.log("[CloudCord Cosmetics] unloaded");
-  },
+    onUnload() {
+        console.log("[CloudCord Cosmetics] unloaded");
+    },
 
-  settings: () => null
+    settings: () => null
 })
