@@ -1,13 +1,18 @@
-const plugin = {
-    SettingsComponent() {
-        return null;
-    },
-
-    start() {
-        bunny.plugin.logger.info("CloudCord Cosmetics settings test loaded");
-    },
-
-    stop() {
-        bunny.plugin.logger.info("CloudCord Cosmetics settings test unloaded");
+{
+  "name": "CloudCord Cosmetics",
+  "description": "CloudCord Cosmetics settings test.",
+  "authors": [
+    {
+      "name": "LyxLunar"
     }
-};
+  ],
+  "main": "index.js",
+  "vendetta": {
+    "icon": "ic_profile_24px"
+  },
+  "hash": "42b44bd34eedf24cd88fef93ec82e585fe1b3e6b3dba18ffc16e29422e967d6a",
+  "cloudcord": {
+    "id": "cloudcord-cosmetics",
+    "kind": "source"
+  }
+}
