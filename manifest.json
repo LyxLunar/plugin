@@ -1,6 +1,6 @@
 {
   "name": "CloudCord Cosmetics",
-  "description": "Client-side cosmetic preview for CloudCord Android. Working baseline with persistent local selection.",
+  "description": "Minimal settings test for CloudCord Cosmetics.",
   "authors": [
     {
       "name": "LyxLunar"
@@ -10,5 +10,5 @@
   "vendetta": {
     "icon": "ic_profile_24px"
   },
-  "hash": "b373edb6699175751039cf07a9c113ab8706a4e3dece0d610ec9585d6b5193f7"
+  "hash": "b4d361c30a4faf42a1d46427498025993eca50dcbd85d2ca4149ef44d91c032f"
 }
